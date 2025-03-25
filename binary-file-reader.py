@@ -1,14 +1,15 @@
 import struct
-import pandas as pd
+import numpy as np
 import tkinter as tk
 from tkinter import filedialog, ttk, messagebox
 import os
+import mmap
 
-class BinaryFileViewer:
+class FastBinaryFileViewer:
     def __init__(self, root):
         self.root = root
-        self.root.title("3D 좌표 이진 파일 뷰어")
-        self.root.geometry("300x250")
+        self.root.title("고속 3D 좌표 이진 파일 뷰어")
+        self.root.geometry("400x300")
 
         # 파일 선택 버튼
         self.select_button = tk.Button(root, text="이진 파일 선택", command=self.show_file_contents)
@@ -18,37 +19,25 @@ class BinaryFileViewer:
         self.progress_label = tk.Label(root, text="")
         self.progress_label.pack(pady=5)
 
-        self.progress_bar = ttk.Progressbar(root, orient='horizontal', length=250, mode='determinate')
+        self.progress_bar = ttk.Progressbar(root, orient='horizontal', length=300, mode='determinate')
         self.progress_bar.pack(pady=10)
 
-    def read_binary_file(self, filename):
+    def read_binary_file_numpy(self, filename):
         try:
-            # 파일 크기 확인
-            file_size = os.path.getsize(filename)
-            
             with open(filename, 'rb') as file:
-                # 3개의 float offset 값 읽기
-                offset_x, offset_y, offset_z = struct.unpack('3f', file.read(12))
+                # mmap 사용으로 파일 읽기 성능 향상
+                mm = mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ)
                 
-                # 좌표 데이터 읽기
-                coordinates = []
-                read_bytes = 12  # 이미 12바이트(offset) 읽음
+                # 3개의 float offset 값 읽기 (12바이트)
+                offset_x, offset_y, offset_z = struct.unpack('3f', mm[0:12])
                 
-                while True:
-                    # 진행률 업데이트
-                    self.progress_bar['value'] = (read_bytes / file_size) * 100
-                    self.progress_label.config(text=f"진행률: {(read_bytes / file_size * 100):.1f}%")
-                    self.root.update_idletasks()
-
-                    coord_data = file.read(12)  # 3개의 float (x, y, z)
-                    if len(coord_data) < 12:
-                        break
-                    
-                    x, y, z = struct.unpack('3f', coord_data)
-                    coordinates.append([x, y, z])
-                    read_bytes += 12
-            
-            return offset_x, offset_y, offset_z, coordinates
+                # 나머지 좌표를 NumPy로 빠르게 읽기
+                coordinates = np.frombuffer(mm[12:], dtype=np.float32).reshape(-1, 3)
+                
+                mm.close()
+                
+                return offset_x, offset_y, offset_z, coordinates
+        
         except Exception as e:
             messagebox.showerror("오류", f"파일을 읽는 중 오류 발생: {e}")
             return None
@@ -64,7 +53,7 @@ class BinaryFileViewer:
             return
         
         # 파일 내용 읽기
-        result = self.read_binary_file(filename)
+        result = self.read_binary_file_numpy(filename)
         if result is None:
             return
         
@@ -109,5 +98,5 @@ class BinaryFileViewer:
 
 # 메인 윈도우 생성
 root = tk.Tk()
-app = BinaryFileViewer(root)
+app = FastBinaryFileViewer(root)
 root.mainloop()
