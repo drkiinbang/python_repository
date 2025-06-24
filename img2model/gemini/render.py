@@ -6,7 +6,7 @@ from PIL import Image
 import numpy as np
 import tkinter as tk
 from tkinter import filedialog
-import os # 파일 경로 처리를 위해 추가
+import os
 
 def load_obj(filename):
     """
@@ -18,7 +18,8 @@ def load_obj(filename):
     faces = []
 
     try:
-        with open(filename, 'r') as file:
+        # 여기에 encoding='utf-8'을 추가합니다.
+        with open(filename, 'r', encoding='utf-8') as file:
             for line in file:
                 if line.startswith('#'):
                     continue
@@ -46,6 +47,9 @@ def load_obj(filename):
         
     return vertices, normals, faces
 
+# 나머지 코드는 이전과 동일합니다.
+# ... (render_scene, save_screenshot, select_obj_file, main 함수 등)
+
 def render_scene(vertices, normals, faces, camera_pos, camera_look_at, camera_up, fov, width, height):
     """
     OpenGL을 사용하여 씬을 렌더링합니다.
@@ -69,11 +73,6 @@ def render_scene(vertices, normals, faces, camera_pos, camera_look_at, camera_up
     glLightfv(GL_LIGHT0, GL_AMBIENT, (0.2, 0.2, 0.2, 1))
     glEnable(GL_COLOR_MATERIAL)
     glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
-
-    # 모델의 크기와 위치에 따라 카메라 위치 조정이 필요할 수 있습니다.
-    # 여기서는 간단히 모델을 원점에 배치하고 렌더링합니다.
-    # glScalef(1.0, 1.0, 1.0) # 필요시 모델 스케일 조정
-    # glTranslatef(0.0, 0.0, 0.0) # 필요시 모델 위치 조정
 
     glBegin(GL_TRIANGLES)
     for face in faces:
