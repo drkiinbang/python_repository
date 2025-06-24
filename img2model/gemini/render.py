@@ -7,18 +7,19 @@ import numpy as np
 import tkinter as tk
 from tkinter import filedialog
 import os
+import yaml # Import PyYAML library
 
 def load_obj(filename):
     """
-    OBJ 파일을 파싱하여 정점, 노멀, 면 정보를 로드합니다.
-    (간단한 구현으로, UV 좌표나 복잡한 OBJ 특성은 다루지 않습니다.)
+    Parses an OBJ file to load vertex, normal, and face information.
+    (Simple implementation, does not handle UV coordinates or complex OBJ features.)
     """
     vertices = []
     normals = []
     faces = []
 
     try:
-        # 여기에 encoding='utf-8'을 추가합니다.
+        # Explicitly specify 'utf-8' encoding for reading the OBJ file
         with open(filename, 'r', encoding='utf-8') as file:
             for line in file:
                 if line.startswith('#'):
@@ -35,24 +36,21 @@ def load_obj(filename):
                     face = []
                     for v in values[1:]:
                         w = v.split('/')
-                        # OBJ 인덱스는 1부터 시작하므로 -1
+                        # OBJ indices are 1-based, so subtract 1
                         face.append(tuple(int(x) - 1 if x else None for x in w))
                     faces.append(face)
     except FileNotFoundError:
-        print(f"오류: '{filename}' 파일을 찾을 수 없습니다.")
+        print(f"Error: Could not find '{filename}' file.")
         return None, None, None
     except Exception as e:
-        print(f"OBJ 파일 로드 중 오류 발생: {e}")
+        print(f"Error loading OBJ file: {e}")
         return None, None, None
         
     return vertices, normals, faces
 
-# 나머지 코드는 이전과 동일합니다.
-# ... (render_scene, save_screenshot, select_obj_file, main 함수 등)
-
 def render_scene(vertices, normals, faces, camera_pos, camera_look_at, camera_up, fov, width, height):
     """
-    OpenGL을 사용하여 씬을 렌더링합니다.
+    Renders the scene using OpenGL.
     """
     glMatrixMode(GL_PROJECTION)
     glLoadIdentity()
@@ -85,93 +83,131 @@ def render_scene(vertices, normals, faces, camera_pos, camera_look_at, camera_up
 
 def save_screenshot(filename, width, height):
     """
-    현재 OpenGL 버퍼의 내용을 이미지 파일로 저장합니다.
+    Saves the content of the current OpenGL buffer to an image file.
     """
     pixels = glReadPixels(0, 0, width, height, GL_RGB, GL_UNSIGNED_BYTE)
     image = Image.frombytes("RGB", (width, height), pixels)
-    image = image.transpose(Image.FLIP_TOP_BOTTOM)  # OpenGL 텍스처는 뒤집혀 있으므로 뒤집어줍니다.
+    image = image.transpose(Image.FLIP_TOP_BOTTOM)  # OpenGL textures are flipped vertically
     image.save(filename)
-    print(f"렌더링된 이미지를 '{filename}'으로 저장했습니다.")
+    print(f"Rendered image saved to '{filename}'.")
 
 def select_obj_file():
     """
-    파일 다이얼로그를 열어 OBJ 파일을 선택하게 합니다.
+    Opens a file dialog for the user to select an OBJ file.
     """
     root = tk.Tk()
-    root.withdraw()  # Tkinter 기본 창 숨기기
+    root.withdraw()  # Hide the default Tkinter window
 
     file_path = filedialog.askopenfilename(
-        title="렌더링할 OBJ 파일 선택",
+        title="Select OBJ file to render",
         filetypes=[("OBJ files", "*.obj"), ("All files", "*.*")]
     )
-    root.destroy() # 다이얼로그 닫은 후 Tkinter 루트 창 파괴
+    root.destroy() # Destroy the Tkinter root window after dialog is closed
     return file_path
+
+def load_config_from_yaml(filepath):
+    """
+    Loads configuration parameters from a YAML file.
+    """
+    try:
+        with open(filepath, 'r', encoding='utf-8') as file:
+            config = yaml.safe_load(file)
+        return config
+    except FileNotFoundError:
+        print(f"Error: YAML configuration file '{filepath}' not found.")
+        return None
+    except yaml.YAMLError as e:
+        print(f"Error parsing YAML file '{filepath}': {e}")
+        return None
+    except Exception as e:
+        print(f"An unexpected error occurred while loading YAML: {e}")
+        return None
 
 def main():
     obj_filepath = select_obj_file()
 
     if not obj_filepath:
-        print("OBJ 파일 선택을 취소했습니다. 프로그램을 종료합니다.")
+        print("OBJ file selection cancelled. Exiting program.")
         return
 
-    print(f"선택된 OBJ 파일: {obj_filepath}")
+    print(f"Selected OBJ file: {obj_filepath}")
+
+    # Prompt user to select YAML configuration file
+    root = tk.Tk()
+    root.withdraw()
+    yaml_filepath = filedialog.askopenfilename(
+        title="Select YAML configuration file",
+        filetypes=[("YAML files", "*.yaml *.yml"), ("All files", "*.*")]
+    )
+    root.destroy()
+
+    if not yaml_filepath:
+        print("YAML configuration file selection cancelled. Exiting program.")
+        return
+
+    print(f"Selected YAML config file: {yaml_filepath}")
+
+    config = load_config_from_yaml(yaml_filepath)
+    if not config:
+        print("Failed to load configuration from YAML. Exiting program.")
+        return
+
+    # Validate and extract configuration values
+    try:
+        camera_settings = config.get('camera_settings')
+        if not camera_settings:
+            raise ValueError("Missing 'camera_settings' in YAML.")
+
+        camera_pos = tuple(camera_settings.get('position'))
+        camera_look_at = tuple(camera_settings.get('look_at'))
+        camera_up = tuple(camera_settings.get('up_vector'))
+        fov = float(camera_settings.get('fov'))
+        output_filename = config.get('output_filename')
+        render_width = int(config.get('render_width', 800))  # Default to 800
+        render_height = int(config.get('render_height', 600)) # Default to 600
+
+        if not all([camera_pos, camera_look_at, camera_up, fov, output_filename]):
+            raise ValueError("One or more required camera settings or output filename are missing in YAML.")
+        if not (0 < fov < 180):
+            raise ValueError("FOV must be between 0 and 180 degrees.")
+
+    except (TypeError, ValueError, AttributeError) as e:
+        print(f"Error validating YAML configuration: {e}")
+        print("Please ensure your YAML file has the following structure:")
+        print("""
+camera_settings:
+  position: [0.0, 0.0, 5.0]
+  look_at: [0.0, 0.0, 0.0]
+  up_vector: [0.0, 1.0, 0.0]
+  fov: 60.0
+output_filename: "rendered_image.png"
+render_width: 800
+render_height: 600
+        """)
+        return
 
     vertices, normals, faces = load_obj(obj_filepath)
     if vertices is None or not vertices or not faces:
-        print("OBJ 파일 로드에 실패했거나 유효한 정보가 없습니다.")
+        print("Failed to load OBJ file or it contains no valid data.")
         return
-    print(f"{os.path.basename(obj_filepath)} 로드 성공. 정점: {len(vertices)}, 면: {len(faces)}")
-
-    # 사용자 입력
-    print("\n카메라 설정을 입력하세요:")
-    try:
-        cam_x = float(input("카메라 X 위치 (예: 0): "))
-        cam_y = float(input("카메라 Y 위치 (예: 0): "))
-        cam_z = float(input("카메라 Z 위치 (예: 5): "))
-        camera_pos = (cam_x, cam_y, cam_z)
-
-        look_x = float(input("카메라가 바라볼 X 위치 (예: 0): "))
-        look_y = float(input("카메라가 바라볼 Y 위치 (예: 0): "))
-        look_z = float(input("카메라가 바라볼 Z 위치 (예: 0): "))
-        camera_look_at = (look_x, look_y, look_z)
-
-        up_x = float(input("카메라 업 벡터 X (일반적으로 0): "))
-        up_y = float(input("카메라 업 벡터 Y (일반적으로 1): "))
-        up_z = float(input("카메라 업 벡터 Z (일반적으로 0): "))
-        camera_up = (up_x, up_y, up_z)
-
-        fov = float(input("시야각 (FOV, degrees, 예: 60): "))
-        if not (0 < fov < 180):
-            raise ValueError("시야각은 0에서 180 사이여야 합니다.")
-
-        output_filename = input("저장할 이미지 파일 이름 (예: output.png): ")
-        if not output_filename:
-            print("파일 이름을 입력해야 합니다. 프로그램을 종료합니다.")
-            return
-
-    except ValueError as e:
-        print(f"입력 오류: {e}")
-        return
-
-    # 렌더링 설정
-    render_width, render_height = 800, 600
+    print(f"{os.path.basename(obj_filepath)} loaded successfully. Vertices: {len(vertices)}, Faces: {len(faces)}")
 
     pygame.init()
-    # 파이게임 디스플레이를 초기화하지 않고, OpenGL 컨텍스트만 생성
+    # Initialize Pygame display, hidden to create OpenGL context without showing a window
     screen = pygame.display.set_mode((render_width, render_height), DOUBLEBUF | OPENGL | HIDDEN)
     pygame.display.set_caption("OBJ Renderer (Hidden)")
 
     try:
-        # 렌더링
+        # Render the scene
         render_scene(vertices, normals, faces, camera_pos, camera_look_at, camera_up, fov, render_width, render_height)
 
-        # 스크린샷 저장
+        # Save the screenshot
         save_screenshot(output_filename, render_width, render_height)
     except Exception as e:
-        print(f"렌더링 또는 저장 중 오류 발생: {e}")
+        print(f"Error during rendering or saving: {e}")
     finally:
         pygame.quit()
-        print("프로그램 종료.")
+        print("Program finished.")
 
 if __name__ == "__main__":
     main()
