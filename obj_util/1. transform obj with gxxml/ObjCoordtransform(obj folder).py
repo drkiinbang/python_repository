@@ -19,7 +19,7 @@ def extract_transform_values_from_gxxml(path):
 
 def euler_zyx(rx, ry, rz):
     """deg → rad → 3×3 회전행렬"""
-    o,p,k = np.deg2rad([rz, ry, rx])   # Z-Y-X
+    o,p,k = np.deg2rad([rx, ry, rz])   # X-Y-Z
     co,cp,ck = np.cos([o,p,k])
     so,sp,sk = np.sin([o,p,k])
     return np.array([[ cp*ck,           -cp*sk,          sp     ],
