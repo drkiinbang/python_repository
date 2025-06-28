@@ -1,0 +1,11 @@
+# Camera settings
+camera_settings:
+  position: [0.0, 0.0, 5.0]     # Camera (x, y, z) position
+  look_at: [0.0, 0.0, 0.0]      # Point (x, y, z) the camera is looking at
+  up_vector: [0.0, 1.0, 0.0]    # Up direction (x, y, z) for the camera (usually [0, 1, 0])
+  fov: 60.0                     # Field of View in degrees
+
+# Output image settings
+output_filename: "rendered_image.png"
+render_width: 800
+render_height: 600
