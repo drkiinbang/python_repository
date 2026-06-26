@@ -11,19 +11,10 @@ import os
 import yaml
 from functools import lru_cache
 import threading
-#from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor
 import time
 import ctypes
 
-"""
-✅ 주요 사항 요약
-GLSL 셰이더 렌더링:
-Vertex Shader (basic.vert)
-Fragment Shader (basic.frag)
-OpenGL 셰이더 컴파일 및 바인딩 함수:
-compile_shader(), create_shader_program()
-
-"""
 
 VERTEX_SHADER_SRC = """
 #version 120
@@ -202,6 +193,10 @@ def select_file(title, types):
     return path
 
 def main():
+    print("=== 고성능 OBJ 렌더러 ===")
+    print("렌더링 방식을 선택하세요:\n1: Fixed-function 파이프라인 (기존 방식)\n2: GLSL 셰이더 방식")
+    mode = input("입력: ").strip()
+
     obj_path = select_file("OBJ 파일 선택", [("OBJ files", "*.obj")])
     if not obj_path: return
     config_path = select_file("YAML 설정 파일 선택", [("YAML files", "*.yaml")])
@@ -222,7 +217,11 @@ def main():
     vertices, normals, faces = renderer.load_obj_optimized(obj_path)
     renderer.setup_vbo(vertices, normals, faces)
 
-    renderer.render_scene_shader(camera_pos, camera_look_at, camera_up, fov, w, h)
+    if mode == '2':
+        renderer.render_scene_shader(camera_pos, camera_look_at, camera_up, fov, w, h)
+    else:
+        renderer.load_obj_optimized(obj_path)
+        print("기존 방식은 render_scene_optimized() 함수로 구현 필요")
 
     renderer.save_screenshot(output_file, w, h)
     pygame.quit()
