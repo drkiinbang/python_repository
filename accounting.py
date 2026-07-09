@@ -1,3 +1,11 @@
+# -------------------------
+# 실행방법 1
+# streamlit run accounting.py
+# 실행 방법 2
+# cd f:/repository/python_repository
+# python -m streamlit run accounting.py
+# -------------------------
+
 import plotly.express as px
 import streamlit as st
 import pandas as pd
@@ -610,3 +618,7 @@ elif menu == "사용자 관리":
         data["users"] = df
         save_excel(data)
         st.success("삭제 완료!")
+
+# -------------------------
+# 실행 방법은 페이지 상단 참조
+# -------------------------
